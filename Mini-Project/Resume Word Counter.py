@@ -16,3 +16,12 @@ def main():
 
 if __name__=="__main__":
     main()
+
+    # Output
+    """
+    RESUME WORD COUNTER
+Enter your resume textExperienced software developer with a strong background in Python,Java and Web Development.Skilled in building scalable applications,debugging complex code, and collaborating with cross-functional teams.Proficient in database management, Restful APIs, and version control using Git.
+Total words: 33
+Unique words: 28
+Most repeated word: and appeared 3 times
+    """
