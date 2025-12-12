@@ -1,0 +1,18 @@
+SAMPLE PDF DOCUMENT
+INTRODUCTION
+This PDF is created for testing Python PDF extraction tasks.
+FEATURES
+This document contains:
+- normal text
+- uppercase headings
+- an email ID
+- a sample table
+- mixed content
+CONTACT
+For more info, email support@example.com
+TABLE
+Name Age City
+Alex 22 Chennai
+Sara 21 Delhi
+CONCLUSION
+This file is perfect for testing PyPDF2, pdfplumber, metadata extraction, and regex.
