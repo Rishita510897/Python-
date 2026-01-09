@@ -221,6 +221,10 @@ if st.session_state.m2_done:
 # MILESTONE 4: CSV REPORT
 # =====================================================
 
+# =====================================================
+# MILESTONE 4: CSV REPORT
+# =====================================================
+
 if st.session_state.m3_done:
     st.markdown("---")
     st.subheader("📊 Milestone 4: Skill Gap Report")
@@ -298,8 +302,10 @@ if st.session_state.m3_done:
         name='Job Requirements',
         line_color='green'
     ))
-    fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0,100])),
-                            showlegend=True, height=400)
+    fig_radar.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0,100])),
+        showlegend=True, height=400
+    )
     st.plotly_chart(fig_radar, use_container_width=True)
 
     # -------------------------------
@@ -321,7 +327,24 @@ if st.session_state.m3_done:
     for title, desc in recommendations:
         st.markdown(f"**{title}** - {desc}")
 
+    # -------------------------------
+    # Create DataFrame for CSV export
+    # -------------------------------
+    if not sim_df.empty:
+        df = pd.DataFrame([
+            {
+                "Resume Skill": v["resume_skill"],
+                "Job Skill": k,
+                "Match %": round(float(v["score"]) * 100, 2)
+            }
+            for k, v in best_matches.items()
+        ])
+    else:
+        df = pd.DataFrame(columns=["Resume Skill", "Job Skill", "Match %"])
+
+    # -------------------------------
     # Download button
+    # -------------------------------
     st.download_button(
         "⬇️ Download Skill Gap Report (CSV)",
         df.to_csv(index=False),
