@@ -1,37 +1,21 @@
 {
-    "overall_alignment": 65.31,
+    "overall_alignment": 85.17,
     "resume_skills": [
-        "tensorflow",
         "python",
-        "docker",
         "data analysis",
-        "computer vision",
-        "teamwork",
-        "sql",
-        "github",
-        "data science",
-        "git",
-        "communication",
-        "natural language processing",
-        "java",
         "machine learning",
-        "deep learning",
-        "pytorch",
-        "linux"
+        "java",
+        "git",
+        "sql",
+        "github"
     ],
     "job_description_skills": [
-        "artificial intelligence",
-        "python",
-        "azure",
-        "computer vision",
-        "decision making",
-        "cloud computing",
-        "kubernetes",
-        "natural language processing",
-        "aws",
         "deep learning",
+        "python",
+        "linux",
         "machine learning",
-        "critical thinking"
+        "sql",
+        "git"
     ],
     "matched_skills": [
         {
@@ -41,37 +25,7 @@
             "top_3_matches": {
                 "python": 1.0,
                 "java": 0.45,
-                "tensorflow": 0.431
-            }
-        },
-        {
-            "job_skill": "computer vision",
-            "best_resume_match": "computer vision",
-            "similarity_score": 1.0,
-            "top_3_matches": {
-                "computer vision": 1.0,
-                "machine learning": 0.518,
-                "deep learning": 0.483
-            }
-        },
-        {
-            "job_skill": "natural language processing",
-            "best_resume_match": "natural language processing",
-            "similarity_score": 1.0,
-            "top_3_matches": {
-                "natural language processing": 1.0,
-                "machine learning": 0.482,
-                "deep learning": 0.394
-            }
-        },
-        {
-            "job_skill": "deep learning",
-            "best_resume_match": "deep learning",
-            "similarity_score": 1.0,
-            "top_3_matches": {
-                "deep learning": 1.0,
-                "machine learning": 0.689,
-                "tensorflow": 0.537
+                "machine learning": 0.361
             }
         },
         {
@@ -80,82 +34,52 @@
             "similarity_score": 1.0,
             "top_3_matches": {
                 "machine learning": 1.0,
-                "deep learning": 0.689,
-                "data analysis": 0.554
+                "data analysis": 0.554,
+                "python": 0.361
+            }
+        },
+        {
+            "job_skill": "sql",
+            "best_resume_match": "sql",
+            "similarity_score": 1.0,
+            "top_3_matches": {
+                "sql": 1.0,
+                "data analysis": 0.447,
+                "java": 0.322
+            }
+        },
+        {
+            "job_skill": "git",
+            "best_resume_match": "git",
+            "similarity_score": 1.0,
+            "top_3_matches": {
+                "git": 1.0,
+                "github": 0.759,
+                "python": 0.288
             }
         }
     ],
     "partial_skills": [
         {
-            "job_skill": "artificial intelligence",
+            "job_skill": "deep learning",
             "best_resume_match": "machine learning",
-            "similarity_score": 0.703,
+            "similarity_score": 0.689,
             "top_3_matches": {
-                "machine learning": 0.703,
-                "deep learning": 0.59,
-                "computer vision": 0.514
+                "machine learning": 0.689,
+                "data analysis": 0.343,
+                "python": 0.311
             }
         }
     ],
     "missing_skills": [
         {
-            "job_skill": "azure",
-            "best_resume_match": "git",
-            "similarity_score": 0.296,
+            "job_skill": "linux",
+            "best_resume_match": "java",
+            "similarity_score": 0.421,
             "top_3_matches": {
-                "git": 0.296,
-                "docker": 0.286,
-                "github": 0.245
-            }
-        },
-        {
-            "job_skill": "decision making",
-            "best_resume_match": "teamwork",
-            "similarity_score": 0.412,
-            "top_3_matches": {
-                "teamwork": 0.412,
-                "communication": 0.387,
-                "machine learning": 0.375
-            }
-        },
-        {
-            "job_skill": "cloud computing",
-            "best_resume_match": "data science",
-            "similarity_score": 0.441,
-            "top_3_matches": {
-                "data science": 0.441,
-                "machine learning": 0.384,
-                "git": 0.352
-            }
-        },
-        {
-            "job_skill": "kubernetes",
-            "best_resume_match": "docker",
-            "similarity_score": 0.315,
-            "top_3_matches": {
-                "docker": 0.315,
-                "git": 0.253,
-                "github": 0.229
-            }
-        },
-        {
-            "job_skill": "aws",
-            "best_resume_match": "docker",
-            "similarity_score": 0.359,
-            "top_3_matches": {
-                "docker": 0.359,
-                "linux": 0.33,
-                "git": 0.306
-            }
-        },
-        {
-            "job_skill": "critical thinking",
-            "best_resume_match": "teamwork",
-            "similarity_score": 0.311,
-            "top_3_matches": {
-                "teamwork": 0.311,
-                "communication": 0.293,
-                "git": 0.21
+                "java": 0.421,
+                "github": 0.407,
+                "python": 0.387
             }
         }
     ]
