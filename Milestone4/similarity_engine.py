@@ -1,40 +1,57 @@
-import pandas as pd
 import torch
 import torch.nn.functional as F
+import pandas as pd
 
 def create_similarity_matrix(resume_emb, jd_emb, resume_skills, jd_skills):
-    """
-    Creates cosine similarity matrix between resume skills and job skills
-    """
 
-    # Normalize embeddings
+    # ✅ Convert to tensor if needed
+    resume_emb = torch.tensor(resume_emb) if not torch.is_tensor(resume_emb) else resume_emb
+    jd_emb = torch.tensor(jd_emb) if not torch.is_tensor(jd_emb) else jd_emb
+
+    # ✅ FIX: ensure 2D
+    if resume_emb.dim() == 1:
+        resume_emb = resume_emb.unsqueeze(0)
+
+    if jd_emb.dim() == 1:
+        jd_emb = jd_emb.unsqueeze(0)
+
+    # ✅ Normalize
     resume_norm = F.normalize(resume_emb, p=2, dim=1)
     jd_norm = F.normalize(jd_emb, p=2, dim=1)
 
-    # Cosine similarity matrix
-    sim_matrix = torch.matmul(resume_norm, jd_norm.T)
+    # ✅ Cosine similarity
+    similarity = torch.mm(resume_norm, jd_norm.T)
 
-    return pd.DataFrame(
-        sim_matrix.cpu().numpy(),
-        index=resume_skills,
-        columns=jd_skills
-    )
+    # ✅ Build DataFrame
+    rows = []
+    for i, r_skill in enumerate(resume_skills):
+        for j, j_skill in enumerate(jd_skills):
+            rows.append({
+                "resume_skill": r_skill,
+                "jd_skill": j_skill,
+                "resume_index": i,
+                "jd_index": j,
+                "similarity": float(similarity[i][j])
+            })
 
-
-def best_skill_matches(sim_df, threshold=0.7):
+    return pd.DataFrame(rows)
+def best_skill_matches(sim_df):
     """
-    Finds best matching job skill for each resume skill
+    For each JD skill, find the best matching resume skill
+    based on highest similarity score.
     """
-    results = {}
 
-    for r_skill in sim_df.index:
-        best_j = sim_df.loc[r_skill].idxmax()
-        best_score = sim_df.loc[r_skill].max()
+    best_matches = {}
 
-        results[r_skill] = {
-            "job_skill": best_j,
-            "score": float(best_score),
-            "match": best_score >= threshold
+    for jd_skill in sim_df["jd_skill"].unique():
+        subset = sim_df[sim_df["jd_skill"] == jd_skill]
+
+        best_row = subset.loc[subset["similarity"].idxmax()]
+
+        best_matches[jd_skill] = {
+            "resume_skill": best_row["resume_skill"],
+            "score": float(best_row["similarity"])
         }
 
-    return results
+    return best_matches
+

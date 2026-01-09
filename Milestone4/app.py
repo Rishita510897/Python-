@@ -117,19 +117,51 @@ if st.session_state.m1_done:
 # =====================================================
 # MILESTONE 2: SKILL CLEANING & NORMALIZATION
 # =====================================================
+# =====================================================
+# MILESTONE 2: SKILL EXTRACTION, CLEANING & NORMALIZATION
+# =====================================================
 if st.session_state.m2_done:
     st.markdown("---")
-    st.subheader("🧹 Milestone 2: Clean & Normalize Skills")
+    st.subheader("🧹 Milestone 2: Skill Extraction, Cleaning & Normalization")
 
-    resume_clean = clean_skill_list(st.session_state.resume_skills)
-    jd_clean = clean_skill_list(st.session_state.jd_skills)
+    # ------------------ EXTRACT SKILLS (TECH + SOFT) ------------------
+    resume_skill_data = extract_skills(st.session_state.resume_text)
+    jd_skill_data = extract_skills(st.session_state.jd_text)
 
-    st.write("**Cleaned Resume Skills:**", resume_clean)
-    st.write("**Cleaned JD Skills:**", jd_clean)
+    resume_tech = resume_skill_data[0]
+    resume_soft = resume_skill_data[1]
 
+    jd_tech = jd_skill_data[0]
+    jd_soft = jd_skill_data[1]
+
+    # ------------------ COMBINE ALL SKILLS ------------------
+    resume_all_skills = resume_tech + resume_soft
+    jd_all_skills = jd_tech + jd_soft
+
+    # ------------------ CLEAN & NORMALIZE ------------------
+    resume_clean = clean_skill_list(resume_all_skills)
+    jd_clean = clean_skill_list(jd_all_skills)
+
+    # ------------------ UI DISPLAY ------------------
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### 📄 Resume Skills")
+        st.write("**Technical Skills:**", resume_tech)
+        st.write("**Soft Skills:**", resume_soft)
+        st.write("**Cleaned Skills:**", resume_clean)
+
+    with col2:
+        st.markdown("### 📑 Job Description Skills")
+        st.write("**Technical Skills:**", jd_tech)
+        st.write("**Soft Skills:**", jd_soft)
+        st.write("**Cleaned Skills:**", jd_clean)
+
+    # ------------------ SAVE FOR MILESTONE 3 ------------------
     st.session_state.resume_clean = resume_clean
     st.session_state.jd_clean = jd_clean
     st.session_state.m3_done = True
+
 
 # =====================================================
 # MILESTONE 3: SIMILARITY MATCHING
@@ -187,7 +219,12 @@ if st.session_state.m3_done:
     col4.metric("Missing Skills", len(missing_skills))
 
     # ------------------ VISUALIZATION ------------------
-    st.pyplot(plot_similarity_bubble_matrix(sim_df))
+    st.subheader("📊 Skill Similarity Matrix")
+    fig = plot_similarity_bubble_matrix(sim_df)
+    st.pyplot(fig)
+    st.write(sim_df.head())
+
+
 
     # ------------------ MISSING SKILLS UI ------------------
     st.subheader("⚠ Missing Skills")
