@@ -245,29 +245,121 @@ if st.session_state.m3_done:
     st.markdown("---")
     st.subheader("📊 Milestone 4: Skill Gap Report")
 
-    # Load session data
-    overall_match = st.session_state.alignment_score * 100
-    best_matches = st.session_state.best_matches
-    sim_df = st.session_state.sim_df if st.session_state.sim_df is not None else pd.DataFrame()
+    # -------------------------------
+    # LOAD SESSION DATA SAFELY
+    # -------------------------------
+    overall_match = st.session_state.get("alignment_score", 0) * 100
+    best_matches = st.session_state.get("best_matches", {})
+    sim_df = st.session_state.get("sim_df", pd.DataFrame())
+    resume_skills = st.session_state.get("resume_clean", [])
+    jd_skills = st.session_state.get("jd_clean", [])
 
+    # -------------------------------
     # Categorize skills
-    matched_skills = [v["resume_skill"] for v in best_matches.values() if float(v["score"]) >= 0.8]
-    partial_skills = [v["resume_skill"] for v in best_matches.values() if 0.5 <= float(v["score"]) < 0.8]
-    missing_skills = [k for k, v in best_matches.items() if float(v["score"]) < 0.5]
+    # -------------------------------
+    matched_skills = [v.get("resume_skill","") for v in best_matches.values() if float(v.get("score",0)) >= 0.8]
+    partial_skills = [v.get("resume_skill","") for v in best_matches.values() if 0.5 <= float(v.get("score",0)) < 0.8]
+    missing_skills = [k for k, v in best_matches.items() if float(v.get("score",0)) < 0.5]
 
-    # Create CSV DataFrame safely
+    # -------------------------------
+    # Skill Match Overview
+    # -------------------------------
+    st.subheader("Skill Match Overview")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    col1.metric("Overall Match", f"{overall_match:.0f}%")
+    col2.metric("Matched Skills", len(matched_skills))
+    col3.metric("Missing Skills", len(missing_skills))
+
+    # -------------------------------
+    # Skill Comparison Bar Chart (Plotly)
+    # -------------------------------
+    if not sim_df.empty:
+        avg_scores = sim_df.groupby("resume_skill")["similarity"].max().reset_index()
+        avg_scores["similarity_pct"] = avg_scores["similarity"] * 100
+
+        import plotly.express as px
+        fig_bar = px.bar(
+            avg_scores,
+            x="resume_skill",
+            y="similarity_pct",
+            labels={"similarity_pct": "Match %", "resume_skill": "Skills"},
+            text="similarity_pct",
+            color="similarity_pct",
+            color_continuous_scale=["red","orange","green"]
+        )
+        fig_bar.update_layout(height=300, showlegend=False)
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+        # Progress bars (safe clamped)
+        st.subheader("Skill Comparison")
+        for _, row in avg_scores.iterrows():
+            st.write(f"{row['resume_skill']}")
+            pct = min(max(int(row["similarity_pct"]),0),100)
+            st.progress(pct)
+
+    # -------------------------------
+    # Role View Radar Chart
+    # -------------------------------
+    st.subheader("Role View")
+    import plotly.graph_objects as go
+    categories = ["Technical Skills", "Soft Skills", "Experience", "Education", "Certifications"]
+    resume_values = [overall_match] * len(categories)
+    jd_values = [100] * len(categories)
+
+    fig_radar = go.Figure()
+    fig_radar.add_trace(go.Scatterpolar(
+        r=resume_values,
+        theta=categories,
+        fill='toself',
+        name='Current Profile',
+        line_color='blue'
+    ))
+    fig_radar.add_trace(go.Scatterpolar(
+        r=jd_values,
+        theta=categories,
+        fill='toself',
+        name='Job Requirements',
+        line_color='green'
+    ))
+    fig_radar.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0,100])),
+        showlegend=True, height=400
+    )
+    st.plotly_chart(fig_radar, use_container_width=True)
+
+    # -------------------------------
+    # Upskilling Recommendations
+    # -------------------------------
+    st.subheader("Upskilling Recommendations")
+    recommendations = []
+
+    for skill in missing_skills:
+        if "AWS" in skill.upper():
+            recommendations.append(("AWS Cloud Services", "Complete AWS Certified Solutions Architect course"))
+        elif "STAT" in skill.upper() or "SQL" in skill.upper():
+            recommendations.append(("Advanced Statistics / SQL", "Enroll in Advanced Statistics or SQL for Data Science"))
+        elif "PROJECT" in skill.upper() or "MGMT" in skill.upper():
+            recommendations.append(("Project Management", "Consider PMP certification for leadership skills"))
+        else:
+            recommendations.append((skill, f"Improve your {skill} skill"))
+
+    for title, desc in recommendations:
+        st.markdown(f"**{title}** - {desc}")
+
+    # -------------------------------
+    # Create DataFrame for CSV export safely
+    # -------------------------------
     if not sim_df.empty:
         df = pd.DataFrame([
             {
-                "Resume Skill": v["resume_skill"],
+                "Resume Skill": v.get("resume_skill",""),
                 "Job Skill": k,
-                "Match %": round(float(v["score"]) * 100, 2)
+                "Match %": round(float(v.get("score",0)) * 100, 2)
             }
             for k, v in best_matches.items()
         ])
     else:
         df = pd.DataFrame(columns=["Resume Skill", "Job Skill", "Match %"])
-
     # Download button
     st.download_button(
         "⬇️ Download Skill Gap Report (CSV)",
