@@ -1,330 +1,246 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import matplotlib.pyplot as plt
 import streamlit.components.v1 as components
+
+# Milestone 2 skill extractor
+from milestone2.skill_extractor import extract_skills, assign_confidence
+
+# Other modules
 from file_loader import load_file
-from milestone2.skill_extractor import extract_skills
 from skill_normalizer import clean_skill_list
 from embedding_engine import embed_list
 from similarity_engine import create_similarity_matrix, best_skill_matches
 from report_generator import generate_skill_gap_report
 from visualization import plot_similarity_bubble_matrix
 
+# ---------------- CONFIG ----------------
 st.set_page_config(layout="wide")
 st.title("Skill Gap Analyzer (Milestone-wise View)")
-def parse_resume(file):
-    import re
-    import docx
-    import PyPDF2
 
-    text = ""
-    if file.name.endswith(".txt"):
-        text = file.read().decode("utf-8")
-    elif file.name.endswith(".pdf"):
-        reader = PyPDF2.PdfReader(file)
-        for page in reader.pages:
-            text += page.extract_text() + "\n"
-    elif file.name.endswith(".docx"):
-        doc = docx.Document(file)
-        text = "\n".join([p.text for p in doc.paragraphs])
+# ---------------- SESSION STATE ----------------
+defaults = {
+    "resume_text": "",
+    "jd_text": "",
+    "resume_skills": [],
+    "jd_skills": [],
+    "resume_clean": [],
+    "jd_clean": [],
+    "best_matches": {},
+    "sim_df": None,
+    "alignment_score": 0.0,
+    "m1_done": False,
+    "m2_done": False,
+    "m3_done": False
+}
 
-    name = re.search(r"Name[:\s]+([A-Za-z ]+)", text)
-    email = re.search(r"[\w\.-]+@[\w\.-]+", text)
-    phone = re.search(r"\+?\d[\d\s-]{8,}\d", text)
-    skills = re.findall(r"\b([A-Za-z+#]+)\b", text)
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
-    return {
-        "name": name.group(1).strip() if name else "",
-        "email": email.group(0) if email else "",
-        "phone": phone.group(0) if phone else "",
-        "skills": skills
-    }
-
-# -------------------------------
-# SESSION STATE INIT
-# -------------------------------
-for key in [
-    "resume_text", "jd_text",
-    "resume_data", "jd_data",
-    "m1_done", "m2_done", "m3_done"
-]:
-    if key not in st.session_state:
-        st.session_state[key] = False
-
-# -------------------------------
-# FILE UPLOAD (ONLY INPUTS)
-# -------------------------------
+# ---------------- FILE UPLOAD ----------------
 st.subheader("📄 Upload Files")
 resume_file = st.file_uploader("Upload Resume", type=["pdf", "docx", "txt"])
 jd_file = st.file_uploader("Upload Job Description", type=["pdf", "docx", "txt"])
 
 if resume_file and jd_file:
-    # -----------------------
-    # LOAD TEXT
-    # -----------------------
-    resume_text = load_file(resume_file)
-    jd_text = load_file(jd_file)
-
-    # -----------------------
-    # PARSE STRUCTURED DATA
-    # -----------------------
-    resume_data = parse_resume(resume_file)  # returns dict with name, email, phone, skills
-    jd_data = parse_resume(jd_file)  # returns dict with title, skills, etc.
-
-    # Save to session state
-    st.session_state.resume_text = resume_text
-    st.session_state.jd_text = jd_text
-    st.session_state.resume_data = resume_data
-    st.session_state.jd_data = jd_data
+    st.session_state.resume_text = load_file(resume_file)
+    st.session_state.jd_text = load_file(jd_file)
     st.session_state.m1_done = True
 
 # =====================================================
-# MILESTONE 1: SHOW STRUCTURED DATA + EXTRACT SKILLS
+# MILESTONE 1: Document Upload & Preview
 # =====================================================
 if st.session_state.m1_done:
     st.markdown("---")
-    st.subheader("✅ Milestone 1: Extracted Data and Skills")
+    st.subheader("✅ Milestone 1: Document Upload & Parsing")
 
-    # ----------------- Resume -----------------
-    st.markdown("**Resume Data (Parsed from file)**")
-    st.json({
-        "Name": st.session_state.resume_data.get("name", ""),
-        "Email": st.session_state.resume_data.get("email", ""),
-        "Phone": st.session_state.resume_data.get("phone", ""),
-        "Raw Skills": st.session_state.resume_data.get("skills", [])
-    })
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("### 📄 Resume Preview")
+        st.text_area("Resume", value=st.session_state.resume_text, height=300)
+    with col2:
+        st.markdown("### 📑 Job Description Preview")
+        st.text_area("Job Description", value=st.session_state.jd_text, height=300)
 
-    # Extract skills from resume text
-    resume_skills = extract_skills(st.session_state.resume_text)
-    st.write("**Extracted Skills from Resume Text:**", resume_skills)
-
-    # ----------------- Job Description -----------------
-    st.markdown("**Job Description Data (Parsed from file)**")
-    st.json({
-        "Title / Role": st.session_state.jd_data.get("title", ""),
-        "Required Skills": st.session_state.jd_data.get("skills", [])
-    })
-
-    # Extract skills from JD text
-    jd_skills = extract_skills(st.session_state.jd_text)
-    st.write("**Extracted Skills from JD Text:**", jd_skills)
-
-    # Save skills for next milestone
-    st.session_state.resume_skills = resume_skills
-    st.session_state.jd_skills = jd_skills
+    # Move to Milestone 2
     st.session_state.m2_done = True
 
 # =====================================================
-# MILESTONE 2: SKILL CLEANING & NORMALIZATION
-# =====================================================
-# =====================================================
-# MILESTONE 2: SKILL EXTRACTION, CLEANING & NORMALIZATION
+# MILESTONE 2: Skill Cleaning & Normalization
 # =====================================================
 if st.session_state.m2_done:
     st.markdown("---")
-    st.subheader("🧹 Milestone 2: Skill Extraction, Cleaning & Normalization")
+    st.subheader("🧹 Milestone 2: Skill Cleaning & Normalization")
 
-    # ------------------ EXTRACT SKILLS (TECH + SOFT) ------------------
-    resume_skill_data = extract_skills(st.session_state.resume_text)
-    jd_skill_data = extract_skills(st.session_state.jd_text)
+    # Extract resume skills automatically
+    resume_text = st.session_state.get("resume_text", "")
+    if resume_text and not st.session_state.get("resume_skills"):
+        resume_tech, resume_soft = extract_skills(resume_text)
+        st.session_state.resume_skills = resume_tech + resume_soft
 
-    resume_tech = resume_skill_data[0]
-    resume_soft = resume_skill_data[1]
+    resume_skills = st.session_state.get("resume_skills", [])
+    jd_skills = st.session_state.get("jd_skills", [])
 
-    jd_tech = jd_skill_data[0]
-    jd_soft = jd_skill_data[1]
-
-    # ------------------ COMBINE ALL SKILLS ------------------
-    resume_all_skills = resume_tech + resume_soft
-    jd_all_skills = jd_tech + jd_soft
-
-    # ------------------ CLEAN & NORMALIZE ------------------
-    resume_clean = clean_skill_list(resume_all_skills)
-    jd_clean = clean_skill_list(jd_all_skills)
-
-    # ------------------ UI DISPLAY ------------------
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("### 📄 Resume Skills")
-        st.write("**Technical Skills:**", resume_tech)
-        st.write("**Soft Skills:**", resume_soft)
-        st.write("**Cleaned Skills:**", resume_clean)
-
-    with col2:
-        st.markdown("### 📑 Job Description Skills")
-        st.write("**Technical Skills:**", jd_tech)
-        st.write("**Soft Skills:**", jd_soft)
-        st.write("**Cleaned Skills:**", jd_clean)
-
-    # ------------------ SAVE FOR MILESTONE 3 ------------------
+    # Clean skills
+    resume_clean = clean_skill_list(resume_skills)
+    jd_clean = clean_skill_list(jd_skills)
     st.session_state.resume_clean = resume_clean
     st.session_state.jd_clean = jd_clean
+
+    # Assign confidence
+    confidence_map = assign_confidence(resume_clean) if resume_clean else {}
+    avg_conf = sum(confidence_map.values()) / len(confidence_map) if confidence_map else 0
+    tech_count = len(resume_clean)
+    soft_count = 0
+    total_count = tech_count + soft_count
+
+    # Layout
+    left, right = st.columns([1.3, 1])
+    with left:
+        st.markdown("### 📄 Resume Skills")
+        if confidence_map:
+            for skill, score in confidence_map.items():
+                st.markdown(
+                    f"<span style='background:#E6F4F1;padding:6px 12px;border-radius:16px;margin:4px;display:inline-block;'>"
+                    f"{skill.title()} <b>{score}%</b></span>",
+                    unsafe_allow_html=True
+                )
+        st.markdown("### ✨ Highlighted Text")
+        st.text_area("Resume Text", resume_text, height=220)
+
+    with right:
+        st.markdown("### 📊 Skill Distribution")
+        st.metric("Technical Skills", tech_count)
+        st.metric("Soft Skills", soft_count)
+        st.metric("Total Skills", total_count)
+        st.metric("Avg. Confidence", f"{avg_conf:.0f}%")
+
+        fig, ax = plt.subplots()
+        pie_values = [tech_count, soft_count] if (tech_count + soft_count) > 0 else [1, 1]
+        ax.pie(pie_values, labels=["Technical", "Soft"], autopct=lambda p: f"{p:.0f}%", startangle=90,
+               colors=["#1f77b4", "#ff7f0e"])
+        ax.axis("equal")
+        st.pyplot(fig)
+
+    st.markdown("### 📋 Detailed Skills")
+    if confidence_map:
+        for skill, score in confidence_map.items():
+            st.markdown(f"**{skill.title()}**")
+            st.progress(score / 100)
+    else:
+        st.write("No detailed skills to display.")
+
+    # Move to Milestone 3
     st.session_state.m3_done = True
 
 
 # =====================================================
-# MILESTONE 3: SIMILARITY MATCHING
+# MILESTONE 3: SIMILARITY MATRIX + MISSING SKILLS
 # =====================================================
-# =====================================================
-# MILESTONE 3: SKILL GAP & SIMILARITY MATCHING (MODIFIED)
-# =====================================================
-import streamlit.components.v1 as components
-
-if st.session_state.m3_done:
+if st.session_state.m2_done:
     st.markdown("---")
-    st.subheader("🔍 Milestone 3: Skill Gap Analysis & Similarity Matching")
+    st.subheader("🔍 Milestone 3: Skill Gap & Similarity Matching")
 
-    # ------------------ EMBEDDINGS ------------------
-    model_name = "all-MiniLM-L6-v2"
+    # --------- AUTO-EXTRACT JD SKILLS IF EMPTY ---------
+    if st.session_state.jd_text and not st.session_state.jd_skills:
+        jd_tech, jd_soft = extract_skills(st.session_state.jd_text)
+        st.session_state.jd_skills = jd_tech + jd_soft
+        st.session_state.jd_clean = clean_skill_list(st.session_state.jd_skills)
 
-    resume_emb = embed_list(st.session_state.resume_clean, model_name)
-    jd_emb = embed_list(st.session_state.jd_clean, model_name)
-
-    # ------------------ SIMILARITY MATRIX ------------------
-    sim_df = create_similarity_matrix(
-        resume_emb,
-        jd_emb,
-        st.session_state.resume_clean,
-        st.session_state.jd_clean
-    )
-
-    best_matches = best_skill_matches(sim_df)
-
-    # ------------------ MATCH COUNTS ------------------
-    matched = 0
-    partial = 0
-    missing_skills = []
-
-    for jd_skill, data in best_matches.items():
-        score = float(data.get("score", 0))
-
-        if score >= 0.80:
-            matched += 1
-        elif score >= 0.50:
-            partial += 1
-        else:
-            missing_skills.append(jd_skill)
-
-    # ------------------ OVERALL MATCH ------------------
-    overall_match = (
-        (matched + (0.5 * partial)) / len(st.session_state.jd_clean)
-    ) * 100
-
-    # ------------------ METRICS ------------------
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Overall Match", f"{overall_match:.2f}%")
-    col2.metric("Matched Skills", matched)
-    col3.metric("Partial Matches", partial)
-    col4.metric("Missing Skills", len(missing_skills))
-
-    # ------------------ VISUALIZATION ------------------
-    st.subheader("📊 Skill Similarity Matrix")
-    fig = plot_similarity_bubble_matrix(sim_df)
-    st.pyplot(fig)
-    st.write(sim_df.head())
-
-
-
-    # ------------------ MISSING SKILLS UI ------------------
-    st.subheader("⚠ Missing Skills")
-
-    if not missing_skills:
-        st.success("No missing skills found 🎉")
+    # Check if both resume and JD have skills
+    if not st.session_state.resume_clean:
+        st.warning("No skills detected in the resume. Cannot compute similarity.")
+    elif not st.session_state.jd_clean:
+        st.warning("No skills detected in the Job Description. Cannot compute similarity.")
     else:
-        for skill in missing_skills:
-            components.html(
-                f"""
-                <div style="
-                    display:flex;
-                    justify-content:space-between;
-                    align-items:center;
-                    padding:14px 16px;
-                    margin-bottom:12px;
-                    border-radius:14px;
-                    background-color:#F8F9FA;
-                    border:1px solid #E0E0E0;
-                ">
-                    <div style="display:flex;align-items:center;">
-                        <div style="
-                            background-color:#6F42C1;
-                            color:white;
-                            width:38px;
-                            height:38px;
-                            border-radius:50%;
-                            display:flex;
-                            align-items:center;
-                            justify-content:center;
-                            margin-right:12px;
-                            font-size:18px;">
-                            ⚠️
-                        </div>
-                        <div>
-                            <div style="font-weight:600;">
-                                {skill}
-                            </div>
-                            <div style="font-size:12px;color:#6C757D;">
-                                Technical Skill
-                            </div>
-                        </div>
+        # -------- EMBEDDINGS --------
+        model_name = "all-MiniLM-L6-v2"
+        resume_emb = embed_list(st.session_state.resume_clean, model_name)
+        jd_emb = embed_list(st.session_state.jd_clean, model_name)
+
+        # -------- SIMILARITY MATRIX --------
+        sim_df = create_similarity_matrix(
+            resume_emb,
+            jd_emb,
+            st.session_state.resume_clean,
+            st.session_state.jd_clean
+        )
+
+        # -------- BEST MATCHES --------
+        best_matches = best_skill_matches(sim_df)
+
+        # Categorize matched / partial / missing skills
+        matched, partial, missing_skills = 0, 0, []
+        for jd_skill, data in best_matches.items():
+            try:
+                score = float(data["score"])  # <-- ensure score is a float
+            except (ValueError, TypeError):
+                score = 0  # fallback if conversion fails
+
+            if score >= 0.8:
+                matched += 1
+            elif score >= 0.5:
+                partial += 1
+            else:
+                missing_skills.append(jd_skill)
+
+        overall_match = ((matched + 0.5 * partial) / len(st.session_state.jd_clean)) * 100
+
+        # -------- METRICS --------
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Overall Match", f"{overall_match:.2f}%")
+        c2.metric("Matched Skills", matched)
+        c3.metric("Partial Matches", partial)
+        c4.metric("Missing Skills", len(missing_skills))
+
+        # -------- BUBBLE CHART --------
+        st.subheader("📊 Skill Similarity Matrix")
+        st.pyplot(plot_similarity_bubble_matrix(sim_df))
+
+        # -------- MISSING SKILLS DISPLAY --------
+        st.subheader("⚠ Missing Skills")
+        if missing_skills:
+            for skill in missing_skills:
+                components.html(f"""
+                    <div style="padding:14px;margin-bottom:10px;border-radius:12px;
+                    background:#FDECEA;border:1px solid #F5C6CB;">
+                    ⚠️ <b>{skill}</b>
                     </div>
+                """, height=70)
+        else:
+            st.success("No missing skills 🎉")
 
-                    <span style="
-                        background-color:#FDECEA;
-                        color:#D32F2F;
-                        padding:6px 12px;
-                        border-radius:14px;
-                        font-size:12px;
-                        font-weight:600;
-                    ">
-                        High
-                    </span>
-                </div>
-                """,
-                height=90
-            )
-
-    # ------------------ SAVE FOR MILESTONE 4 ------------------
-    st.session_state.sim_df = sim_df
-    st.session_state.best_matches = best_matches
-    st.session_state.alignment_score = overall_match / 100
-
-
+        # Save session state for Milestone 4
+        st.session_state.sim_df = sim_df
+        st.session_state.best_matches = best_matches
+        st.session_state.alignment_score = overall_match / 100
+        st.session_state.m3_done = True
 
 # =====================================================
-# MILESTONE 4: REPORT + CSV DOWNLOAD
+# MILESTONE 4: CSV REPORT
 # =====================================================
+
 if st.session_state.m3_done:
     st.markdown("---")
     st.subheader("📊 Milestone 4: Skill Gap Report")
 
-    report = generate_skill_gap_report(
-        st.session_state.resume_clean,
-        st.session_state.jd_clean,
-        st.session_state.best_matches,
-        st.session_state.alignment_score
-    )
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Matched Skills", len(report.get("matched_skills", [])))
-    col2.metric("Partial Skills", len(report.get("partial_skills", [])))
-    col3.metric("Missing Skills", len(report.get("missing_skills", [])))
-
-    # CSV DOWNLOAD
     df = pd.DataFrame([
         {
             "Job Skill": k,
-            "Resume Skill": v.get("resume_skill", ""),
-            "Similarity Score": v.get("score", 0)
+            "Resume Skill": v["resume_skill"],
+            "Similarity Score": round(v["score"], 2)
         }
         for k, v in st.session_state.best_matches.items()
     ])
 
-    csv = df.to_csv(index=False).encode("utf-8")
+    # Display table
+    st.dataframe(df)
 
+    # Download button
     st.download_button(
         "⬇️ Download Skill Gap Report (CSV)",
-        csv,
+        df.to_csv(index=False),
         "skill_gap_report.csv",
         "text/csv"
     )
