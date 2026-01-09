@@ -170,11 +170,11 @@ if st.session_state.m2_done:
         # -------- BEST MATCHES --------
         best_matches = best_skill_matches(sim_df)
 
-        # Categorize matched / partial / missing skills
+        # -------- CATEGORIZE MATCHED / PARTIAL / MISSING SKILLS --------
         matched, partial, missing_skills = 0, 0, []
         for jd_skill, data in best_matches.items():
             try:
-                score = float(data["score"])  # <-- ensure score is a float
+                score = float(data["score"])  # ensure score is a float
             except (ValueError, TypeError):
                 score = 0  # fallback if conversion fails
 
@@ -211,7 +211,7 @@ if st.session_state.m2_done:
         else:
             st.success("No missing skills 🎉")
 
-        # Save session state for Milestone 4
+        # -------- SAVE SESSION STATE FOR MILESTONE 4 --------
         st.session_state.sim_df = sim_df
         st.session_state.best_matches = best_matches
         st.session_state.alignment_score = overall_match / 100
@@ -225,17 +225,101 @@ if st.session_state.m3_done:
     st.markdown("---")
     st.subheader("📊 Milestone 4: Skill Gap Report")
 
-    df = pd.DataFrame([
-        {
-            "Job Skill": k,
-            "Resume Skill": v["resume_skill"],
-            "Similarity Score": round(v["score"], 2)
-        }
-        for k, v in st.session_state.best_matches.items()
-    ])
+    # -------------------------------
+    # LOAD SESSION DATA
+    # -------------------------------
+    overall_match = st.session_state.get("alignment_score", 0) * 100
+    best_matches = st.session_state.get("best_matches", {})
+    sim_df = st.session_state.get("sim_df", pd.DataFrame())
+    resume_skills = st.session_state.get("resume_clean", [])
+    jd_skills = st.session_state.get("jd_clean", [])
 
-    # Display table
-    st.dataframe(df)
+    # Categorize skills
+    matched_skills = [v["resume_skill"] for v in best_matches.values() if float(v["score"]) >= 0.8]
+    partial_skills = [v["resume_skill"] for v in best_matches.values() if 0.5 <= float(v["score"]) < 0.8]
+    missing_skills = [k for k, v in best_matches.items() if float(v["score"]) < 0.5]
+
+    # -------------------------------
+    # Skill Match Overview
+    # -------------------------------
+    st.subheader("Skill Match Overview")
+    col1, col2, col3 = st.columns([1,1,1])
+    col1.metric("Overall Match", f"{overall_match:.0f}%")
+    col2.metric("Matched Skills", len(matched_skills))
+    col3.metric("Missing Skills", len(missing_skills))
+
+    # -------------------------------
+    # Skill Comparison Bar Chart
+    # -------------------------------
+    if not sim_df.empty:
+        avg_scores = sim_df.groupby("resume_skill")["similarity"].max().reset_index()
+        avg_scores["similarity_pct"] = avg_scores["similarity"] * 100
+
+        import plotly.express as px
+        fig_bar = px.bar(
+            avg_scores,
+            x="resume_skill",
+            y="similarity_pct",
+            labels={"similarity_pct": "Match %", "resume_skill": "Skills"},
+            text="similarity_pct",
+            color="similarity_pct",
+            color_continuous_scale=["red","orange","green"]
+        )
+        fig_bar.update_layout(height=300, showlegend=False)
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+        # Progress bars
+        st.subheader("Skill Comparison")
+        for _, row in avg_scores.iterrows():
+            st.write(f"{row['resume_skill']}")
+            st.progress(int(row["similarity_pct"]))
+
+    # -------------------------------
+    # Role View Radar Chart
+    # -------------------------------
+    st.subheader("Role View")
+    import plotly.graph_objects as go
+    categories = ["Technical Skills", "Soft Skills", "Experience", "Education", "Certifications"]
+    resume_values = [overall_match] * len(categories)
+    jd_values = [100] * len(categories)
+
+    fig_radar = go.Figure()
+    fig_radar.add_trace(go.Scatterpolar(
+        r=resume_values,
+        theta=categories,
+        fill='toself',
+        name='Current Profile',
+        line_color='blue'
+    ))
+    fig_radar.add_trace(go.Scatterpolar(
+        r=jd_values,
+        theta=categories,
+        fill='toself',
+        name='Job Requirements',
+        line_color='green'
+    ))
+    fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0,100])),
+                            showlegend=True, height=400)
+    st.plotly_chart(fig_radar, use_container_width=True)
+
+    # -------------------------------
+    # Upskilling Recommendations
+    # -------------------------------
+    st.subheader("Upskilling Recommendations")
+    recommendations = []
+
+    for skill in missing_skills:
+        if "AWS" in skill.upper():
+            recommendations.append(("AWS Cloud Services", "Complete AWS Certified Solutions Architect course"))
+        elif "STAT" in skill.upper() or "SQL" in skill.upper():
+            recommendations.append(("Advanced Statistics / SQL", "Enroll in Advanced Statistics or SQL for Data Science"))
+        elif "PROJECT" in skill.upper() or "MGMT" in skill.upper():
+            recommendations.append(("Project Management", "Consider PMP certification for leadership skills"))
+        else:
+            recommendations.append((skill, f"Improve your {skill} skill"))
+
+    for title, desc in recommendations:
+        st.markdown(f"**{title}** - {desc}")
 
     # Download button
     st.download_button(
