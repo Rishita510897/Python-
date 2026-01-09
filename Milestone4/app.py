@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-
+import streamlit.components.v1 as components
 from file_loader import load_file
 from milestone2.skill_extractor import extract_skills
 from skill_normalizer import clean_skill_list
@@ -9,7 +9,6 @@ from embedding_engine import embed_list
 from similarity_engine import create_similarity_matrix, best_skill_matches
 from report_generator import generate_skill_gap_report
 from visualization import plot_similarity_bubble_matrix
-from parser import parse_resume  # Flask-style parsing logic adapted for files
 
 st.set_page_config(layout="wide")
 st.title("Skill Gap Analyzer (Milestone-wise View)")
@@ -135,29 +134,125 @@ if st.session_state.m2_done:
 # =====================================================
 # MILESTONE 3: SIMILARITY MATCHING
 # =====================================================
+# =====================================================
+# MILESTONE 3: SKILL GAP & SIMILARITY MATCHING (MODIFIED)
+# =====================================================
+import streamlit.components.v1 as components
+
 if st.session_state.m3_done:
     st.markdown("---")
-    st.subheader("🔍 Milestone 3: Skill Similarity Matching")
+    st.subheader("🔍 Milestone 3: Skill Gap Analysis & Similarity Matching")
 
+    # ------------------ EMBEDDINGS ------------------
     model_name = "all-MiniLM-L6-v2"
+
     resume_emb = embed_list(st.session_state.resume_clean, model_name)
     jd_emb = embed_list(st.session_state.jd_clean, model_name)
 
+    # ------------------ SIMILARITY MATRIX ------------------
     sim_df = create_similarity_matrix(
-        resume_emb, jd_emb,
+        resume_emb,
+        jd_emb,
         st.session_state.resume_clean,
         st.session_state.jd_clean
     )
 
     best_matches = best_skill_matches(sim_df)
-    alignment_score = np.mean([v.get("score", 0) for v in best_matches.values()])
 
-    st.metric("Overall Match", f"{alignment_score*100:.2f}%")
+    # ------------------ MATCH COUNTS ------------------
+    matched = 0
+    partial = 0
+    missing_skills = []
+
+    for jd_skill, data in best_matches.items():
+        score = float(data.get("score", 0))
+
+        if score >= 0.80:
+            matched += 1
+        elif score >= 0.50:
+            partial += 1
+        else:
+            missing_skills.append(jd_skill)
+
+    # ------------------ OVERALL MATCH ------------------
+    overall_match = (
+        (matched + (0.5 * partial)) / len(st.session_state.jd_clean)
+    ) * 100
+
+    # ------------------ METRICS ------------------
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Overall Match", f"{overall_match:.2f}%")
+    col2.metric("Matched Skills", matched)
+    col3.metric("Partial Matches", partial)
+    col4.metric("Missing Skills", len(missing_skills))
+
+    # ------------------ VISUALIZATION ------------------
     st.pyplot(plot_similarity_bubble_matrix(sim_df))
 
+    # ------------------ MISSING SKILLS UI ------------------
+    st.subheader("⚠ Missing Skills")
+
+    if not missing_skills:
+        st.success("No missing skills found 🎉")
+    else:
+        for skill in missing_skills:
+            components.html(
+                f"""
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    padding:14px 16px;
+                    margin-bottom:12px;
+                    border-radius:14px;
+                    background-color:#F8F9FA;
+                    border:1px solid #E0E0E0;
+                ">
+                    <div style="display:flex;align-items:center;">
+                        <div style="
+                            background-color:#6F42C1;
+                            color:white;
+                            width:38px;
+                            height:38px;
+                            border-radius:50%;
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            margin-right:12px;
+                            font-size:18px;">
+                            ⚠️
+                        </div>
+                        <div>
+                            <div style="font-weight:600;">
+                                {skill}
+                            </div>
+                            <div style="font-size:12px;color:#6C757D;">
+                                Technical Skill
+                            </div>
+                        </div>
+                    </div>
+
+                    <span style="
+                        background-color:#FDECEA;
+                        color:#D32F2F;
+                        padding:6px 12px;
+                        border-radius:14px;
+                        font-size:12px;
+                        font-weight:600;
+                    ">
+                        High
+                    </span>
+                </div>
+                """,
+                height=90
+            )
+
+    # ------------------ SAVE FOR MILESTONE 4 ------------------
     st.session_state.sim_df = sim_df
     st.session_state.best_matches = best_matches
-    st.session_state.alignment_score = alignment_score
+    st.session_state.alignment_score = overall_match / 100
+
+
 
 # =====================================================
 # MILESTONE 4: REPORT + CSV DOWNLOAD
